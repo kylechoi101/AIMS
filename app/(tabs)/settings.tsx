@@ -1,11 +1,57 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, TextInput, Pressable, ScrollView, useColorScheme, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, TextInput, Pressable, ScrollView, useColorScheme, ActivityIndicator, Modal, FlatList, Platform } from 'react-native';
 import { KeyRound, ShieldCheck, User, HelpCircle } from 'lucide-react-native';
 import { useSettingsStore, AiProvider } from '@/lib/store/settingsStore';
 import { useAuthStore } from '@/lib/store/authStore';
 import Colors from '@/constants/Colors';
 import { useRouter } from 'expo-router';
 import { TutorialModal } from '@/components/TutorialModal';
+
+const OPENAI_MODELS = ["gpt-5.4-pro", "gpt-5.4-thinking", "gpt-5.4-mini", "gpt-5.3-instant", "gpt-4o"];
+const ANTHROPIC_MODELS = ["claude-4.6-opus", "claude-4.6-sonnet", "claude-4.6-haiku", "claude-mythos-preview"];
+const GEMINI_MODELS = ["gemini-3.1-pro", "gemini-3.1-flash-lite", "gemini-3.1-flash-live", "gemma-4-31B"];
+
+function CustomPicker({ value, onValueChange, options, placeholder, colors }: any) {
+  const [modalVisible, setModalVisible] = useState(false);
+  return (
+    <View style={{ flex: 1 }}>
+      <Pressable 
+        style={[styles.textInput, { justifyContent: 'center' }]} 
+        onPress={() => setModalVisible(true)}
+      >
+        <Text style={{ color: value ? colors.text : colors.textSecondary }}>
+          {value || placeholder}
+        </Text>
+      </Pressable>
+
+      <Modal visible={modalVisible} transparent animationType="slide">
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }} onPress={() => setModalVisible(false)} />
+        <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '50%', minHeight: 300, position: 'absolute', bottom: 0, left: 0, right: 0 }}>
+          <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.text, textAlign: 'center' }}>{placeholder}</Text>
+          </View>
+          <FlatList
+            data={options}
+            keyExtractor={(item) => item as string}
+            renderItem={({ item }) => (
+              <Pressable 
+                style={{ padding: 20, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: item === value ? colors.inputBg : 'transparent' }}
+                onPress={() => {
+                  onValueChange(item);
+                  setModalVisible(false);
+                }}
+              >
+                <Text style={{ fontSize: 16, color: colors.text, fontWeight: item === value ? 'bold' : 'normal', textAlign: 'center' }}>
+                  {item}
+                </Text>
+              </Pressable>
+            )}
+          />
+        </View>
+      </Modal>
+    </View>
+  );
+}
 
 export default function SettingsScreen() {
   const { globalApiKey, setGlobalApiKey, setAiProvider, openaiModel, anthropicModel, geminiModel, setModels } = useSettingsStore();
@@ -124,17 +170,17 @@ export default function SettingsScreen() {
 
       <Text style={[styles.label, { color: colors.text, marginTop: 16 }]}>Flagship Model Overrides</Text>
       <Text style={{ color: colors.textSecondary, marginBottom: 12, fontSize: 13, marginLeft: 4 }}>
-        Type in exactly which flagship model version you want the agents to use when you provide that company's API key.
+        Select exactly which flagship model version you want the agents to use when you provide that company's API key.
       </Text>
       
-      <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
-        <TextInput style={[styles.textInput, { color: colors.text }]} placeholder="OpenAI Model (e.g. gpt-5.4)" placeholderTextColor={colors.textSecondary} value={localOpenai} onChangeText={setLocalOpenai} />
+      <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.border, paddingVertical: Platform.OS === 'ios' ? 0 : 4 }]}>
+        <CustomPicker value={localOpenai} onValueChange={setLocalOpenai} options={OPENAI_MODELS} placeholder="Select OpenAI Model..." colors={colors} />
       </View>
-      <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
-        <TextInput style={[styles.textInput, { color: colors.text }]} placeholder="Anthropic Model (e.g. claude-4.6)" placeholderTextColor={colors.textSecondary} value={localAnthropic} onChangeText={setLocalAnthropic} />
+      <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.border, paddingVertical: Platform.OS === 'ios' ? 0 : 4 }]}>
+        <CustomPicker value={localAnthropic} onValueChange={setLocalAnthropic} options={ANTHROPIC_MODELS} placeholder="Select Anthropic Model..." colors={colors} />
       </View>
-      <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
-        <TextInput style={[styles.textInput, { color: colors.text }]} placeholder="Gemini Model (e.g. gemini-3.1-pro)" placeholderTextColor={colors.textSecondary} value={localGemini} onChangeText={setLocalGemini} />
+      <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.border, paddingVertical: Platform.OS === 'ios' ? 0 : 4 }]}>
+        <CustomPicker value={localGemini} onValueChange={setLocalGemini} options={GEMINI_MODELS} placeholder="Select Gemini Model..." colors={colors} />
       </View>
       
       <Pressable 

@@ -9,6 +9,7 @@ Built exclusively for iOS, Android, and Web using the Expo Managed Workflow.
 - **Multiplayer Collaboration Room**: Real-time Supabase WebSockets chatting with Peer/Host distinct cursors.
 - **BYOK (Bring Your Own Key)**: Zero-friction AI integration. Users use their personal OpenAI, Anthropic, or Google Gemini keys directly via `MMKV`.
 - **Dynamic AI Personas**: Call on Designers, Developers, or Advisors instantly in chat to unblock your creative progress.
+- **Frictionless Model Selection**: Embedded native Dropdown UI selectors to hot-swap between bleeding-edge April 2026 models (`GPT-5.4`, `Claude 4.6`, `Gemini 3.1`) instantly without manual typing.
 - **RAG Multi-Agent Deployments**: Swipe right on your finalized brainstorm. A multi-agent AI pipeline (`Product Owner` -> `Senior Dev` -> `Staff Engineer`) reads your chronological transcript and builds a complete React Native Markdown Blueprint.
 - **Catch Me Up**: Missed a session? Generates instant AI summaries when returning from 24h absence.
 
