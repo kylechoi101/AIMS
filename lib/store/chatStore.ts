@@ -4,12 +4,31 @@ import { Platform } from "react-native";
 import { Message, Room } from "../types";
 import { supabase } from "../supabase";
 
-// @ts-ignore
-export const storage = Platform.OS === 'web' ? {
+// Safe MMKV initialization — falls back gracefully if native module isn't ready
+const webStorage = {
   set: (k: string, v: string) => typeof window !== 'undefined' && window.localStorage.setItem(k, v),
   getString: (k: string) => typeof window !== 'undefined' ? window.localStorage.getItem(k) : null,
   remove: (k: string) => typeof window !== 'undefined' && window.localStorage.removeItem(k)
-} : createMMKV({ id: 'chat-store' });
+};
+
+let storage: any;
+export { storage };
+if (Platform.OS === 'web') {
+  storage = webStorage;
+} else {
+  try {
+    storage = createMMKV({ id: 'chat-store' });
+  } catch (e) {
+    console.warn('MMKV init failed, using in-memory fallback:', e);
+    const memStore: Record<string, string> = {};
+    storage = {
+      set: (k: string, v: string) => { memStore[k] = v; },
+      getString: (k: string) => memStore[k] ?? null,
+      remove: (k: string) => { delete memStore[k]; }
+    };
+  }
+}
+// @ts-ignore
 
 interface ChatSlice {
   rooms: Room[];

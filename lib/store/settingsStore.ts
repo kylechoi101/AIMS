@@ -2,12 +2,29 @@ import { create } from "zustand";
 import { Platform } from "react-native";
 import { createMMKV } from "react-native-mmkv";
 
-// @ts-ignore
-const storage = Platform.OS === 'web' ? {
+// Safe MMKV initialization — falls back gracefully if native module isn't ready
+const webStorage = {
   set: (k: string, v: string) => typeof window !== 'undefined' && window.localStorage.setItem(k, v),
   getString: (k: string) => typeof window !== 'undefined' ? window.localStorage.getItem(k) : null,
   remove: (k: string) => typeof window !== 'undefined' && window.localStorage.removeItem(k)
-} : createMMKV({ id: 'settings-store' });
+};
+
+let storage: any;
+if (Platform.OS === 'web') {
+  storage = webStorage;
+} else {
+  try {
+    storage = createMMKV({ id: 'settings-store' });
+  } catch (e) {
+    console.warn('MMKV init failed, using in-memory fallback:', e);
+    const memStore: Record<string, string> = {};
+    storage = {
+      set: (k: string, v: string) => { memStore[k] = v; },
+      getString: (k: string) => memStore[k] ?? null,
+      remove: (k: string) => { delete memStore[k]; }
+    };
+  }
+}
 
 export type AiProvider = 'openai' | 'anthropic' | 'gemini';
 
