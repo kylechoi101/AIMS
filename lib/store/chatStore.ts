@@ -44,10 +44,31 @@ export const useChatStore = create<ChatSlice>((set, get) => ({
   lastCursor: null,
 
   loadRooms: async () => {
-     const { data, error } = await supabase.from('rooms').select('*').order('created_at', { ascending: false });
-     if (!error && data) {
-       set({ rooms: data as Room[] });
-     }
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) return;
+
+    // Only load rooms where the current user is an active member.
+    // This prevents left rooms from reappearing on refresh.
+    const { data: memberRows } = await supabase
+      .from('room_members')
+      .select('room_id')
+      .eq('user_id', userData.user.id);
+
+    if (!memberRows || memberRows.length === 0) {
+      set({ rooms: [] });
+      return;
+    }
+
+    const roomIds = memberRows.map((r: any) => r.room_id);
+    const { data, error } = await supabase
+      .from('rooms')
+      .select('*')
+      .in('id', roomIds)
+      .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      set({ rooms: data as Room[] });
+    }
   },
 
   createRoom: async (name: string) => {
