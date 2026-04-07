@@ -44,7 +44,7 @@ export const useSettingsStore = create<SettingsSlice>((set) => ({
   globalApiKey: storage.getString('globalApiKey') || '',
   openaiModel: storage.getString('openaiModel') || 'gpt-5.4-pro',
   anthropicModel: storage.getString('anthropicModel') || 'claude-4.6-opus',
-  geminiModel: storage.getString('geminiModel') || 'gemini-3.1-pro',
+  geminiModel: storage.getString('geminiModel') || 'gemini-1.5-flash',
   
   setAiProvider: (provider: AiProvider) => {
     storage.set('aiProvider', provider);

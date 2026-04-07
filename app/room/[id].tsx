@@ -35,6 +35,7 @@ export default function RoomScreen() {
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [summaryText, setSummaryText] = useState('');
   const [isSummarizing, setIsSummarizing] = useState(false);
+  const [isAIAnalysing, setIsAIAnalysing] = useState(false);
   const [showCatchUpBanner, setShowCatchUpBanner] = useState(false);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -104,7 +105,8 @@ export default function RoomScreen() {
   };
 
   const handleAIResponse = async (userText: string) => {
-    if (!session?.user?.id) return;
+    if (!session?.user?.id || isAIAnalysing) return;
+    setIsAIAnalysing(true);
 
     const roleContext = classifyRoleLocal(userText);
     let systemPrompt = getSystemContext(roleContext);
@@ -156,6 +158,7 @@ export default function RoomScreen() {
       sender_name: roleContext,
       content: accumulatedText,
     });
+    setIsAIAnalysing(false);
   };
 
   const sendMessage = () => {
@@ -172,8 +175,8 @@ export default function RoomScreen() {
       created_at: new Date().toISOString()
     };
     
-    queueMessage(newMsg);
     setInputText('');
+    queueMessage(newMsg);
   };
 
   return (
@@ -252,12 +255,13 @@ export default function RoomScreen() {
                 <BookOpen color={colors.textSecondary} size={20} />
               </Pressable>
 
-              <Pressable 
-                onPress={() => handleAIResponse("What are your thoughts on the recent ideas in this room?")} 
-                style={{ padding: 8, backgroundColor: colorScheme === 'dark' ? '#2e1065' : '#fef08a', borderRadius: 20 }}
+              <TouchableOpacity 
+                disabled={isAIAnalysing}
+                onPress={() => handleAIResponse(inputText || "What are your thoughts on the recent ideas in this room?")} 
+                style={{ padding: 8, backgroundColor: colorScheme === 'dark' ? '#2e1065' : '#fef08a', borderRadius: 20, opacity: isAIAnalysing ? 0.4 : 1 }}
               >
-                <Sparkles color={colorScheme === 'dark' ? '#c4b5fd' : '#b45309'} size={20} />
-              </Pressable>
+                {isAIAnalysing ? <ActivityIndicator size="small" color={colors.tint} /> : <Sparkles color={colorScheme === 'dark' ? '#c4b5fd' : '#b45309'} size={20} />}
+              </TouchableOpacity>
             </View>
           ),
         }} 
@@ -293,12 +297,15 @@ export default function RoomScreen() {
           onChangeText={setInputText}
           multiline
         />
-        <Pressable 
-          style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled, { backgroundColor: colors.tint }]} 
+        <TouchableOpacity
+          style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled, { backgroundColor: colors.tint }]}
           onPress={sendMessage}
+          disabled={!inputText.trim()}
+          hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+          activeOpacity={0.6}
         >
           <Send size={18} color="#ffffff" style={styles.sendIcon} />
-        </Pressable>
+        </TouchableOpacity>
       </View>
 
       <Modal transparent visible={showSummaryModal} animationType="fade">
