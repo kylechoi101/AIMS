@@ -25,7 +25,8 @@ export default function DeployScreen() {
   const [deployStepMessage, setDeployStepMessage] = useState('Initializing AIMS Architect...');
 
   const executeAgentSilent = async (prompt: string, payload: Message[]): Promise<string> => {
-    const stream = streamChimeIn(aiProvider, globalApiKey, activeModel, prompt, payload);
+    const availableModels = useSettingsStore.getState().getAvailableModelsForActiveProvider();
+    const stream = streamChimeIn(aiProvider, globalApiKey, activeModel, prompt, payload, availableModels);
     let result = "";
     for await (const chunk of stream) result += chunk;
     return result;

@@ -34,18 +34,39 @@ interface SettingsSlice {
   openaiModel: string;
   anthropicModel: string;
   geminiModel: string;
+  availableOpenaiModels: string[];
+  availableAnthropicModels: string[];
+  availableGeminiModels: string[];
+  keyValidated: boolean;
   setAiProvider: (provider: AiProvider) => void;
   setGlobalApiKey: (key: string) => void;
   setModels: (openai: string, anthropic: string, gemini: string) => void;
+  setAvailableModels: (provider: AiProvider, models: string[]) => void;
+  setKeyValidated: (validated: boolean) => void;
+  getActiveModel: () => string;
+  getAvailableModelsForActiveProvider: () => string[];
+}
+
+// Load cached available models from MMKV
+function loadCachedModels(provider: string): string[] {
+  const cached = storage.getString(`availableModels_${provider}`);
+  if (cached) {
+    try { return JSON.parse(cached); } catch {}
+  }
+  return [];
 }
 
 export const useSettingsStore = create<SettingsSlice>((set) => ({
   aiProvider: (storage.getString('aiProvider') as AiProvider) || 'openai',
   globalApiKey: storage.getString('globalApiKey') || '',
-  openaiModel: storage.getString('openaiModel') || 'gpt-5.4-pro',
-  anthropicModel: storage.getString('anthropicModel') || 'claude-4.6-opus',
-  geminiModel: storage.getString('geminiModel') || 'gemini-1.5-flash',
-  
+  openaiModel: storage.getString('openaiModel') || '',
+  anthropicModel: storage.getString('anthropicModel') || '',
+  geminiModel: storage.getString('geminiModel') || '',
+  availableOpenaiModels: loadCachedModels('openai'),
+  availableAnthropicModels: loadCachedModels('anthropic'),
+  availableGeminiModels: loadCachedModels('gemini'),
+  keyValidated: !!storage.getString('globalApiKey'),
+
   setAiProvider: (provider: AiProvider) => {
     storage.set('aiProvider', provider);
     set({ aiProvider: provider });
@@ -57,9 +78,40 @@ export const useSettingsStore = create<SettingsSlice>((set) => ({
   },
 
   setModels: (openai: string, anthropic: string, gemini: string) => {
-    storage.set('openaiModel', openai);
-    storage.set('anthropicModel', anthropic);
-    storage.set('geminiModel', gemini);
-    set({ openaiModel: openai, anthropicModel: anthropic, geminiModel: gemini });
+    const current = useSettingsStore.getState();
+    const finalOpenai = openai || current.openaiModel;
+    const finalAnthropic = anthropic || current.anthropicModel;
+    const finalGemini = gemini || current.geminiModel;
+    if (finalOpenai) storage.set('openaiModel', finalOpenai);
+    if (finalAnthropic) storage.set('anthropicModel', finalAnthropic);
+    if (finalGemini) storage.set('geminiModel', finalGemini);
+    set({ openaiModel: finalOpenai, anthropicModel: finalAnthropic, geminiModel: finalGemini });
+  },
+
+  setAvailableModels: (provider: AiProvider, models: string[]) => {
+    storage.set(`availableModels_${provider}`, JSON.stringify(models));
+    if (provider === 'openai') set({ availableOpenaiModels: models });
+    else if (provider === 'anthropic') set({ availableAnthropicModels: models });
+    else if (provider === 'gemini') set({ availableGeminiModels: models });
+  },
+
+  setKeyValidated: (validated: boolean) => {
+    set({ keyValidated: validated });
+  },
+
+  getActiveModel: () => {
+    const state = useSettingsStore.getState();
+    const provider = state.aiProvider;
+    if (provider === 'openai') return state.openaiModel;
+    if (provider === 'anthropic') return state.anthropicModel;
+    return state.geminiModel;
+  },
+
+  getAvailableModelsForActiveProvider: () => {
+    const state = useSettingsStore.getState();
+    const provider = state.aiProvider;
+    if (provider === 'openai') return state.availableOpenaiModels;
+    if (provider === 'anthropic') return state.availableAnthropicModels;
+    return state.availableGeminiModels;
   }
 }));

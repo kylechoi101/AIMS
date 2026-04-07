@@ -49,6 +49,7 @@ interface ChatSlice {
   loadMessages: (roomId: string, cursor?: string) => Promise<void>;
   addMessage: (msg: Message) => void;
   updateMessage: (id: string, partial: Partial<Message>) => void;
+  removeMessage: (id: string) => void;
   queueMessage: (msg: Message) => void;
   flushQueue: () => Promise<void>;
   subscribeToRoom: (roomId: string) => void;
@@ -199,6 +200,12 @@ export const useChatStore = create<ChatSlice>((set, get) => ({
   updateMessage: (id: string, partial: Partial<Message>) => {
     set((state) => ({
       messages: state.messages.map(m => m.id === id ? { ...m, ...partial } : m)
+    }));
+  },
+
+  removeMessage: (id: string) => {
+    set((state) => ({
+      messages: state.messages.filter(m => m.id !== id)
     }));
   },
 

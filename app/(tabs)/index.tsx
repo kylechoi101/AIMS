@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, FlatList, Pressable, TouchableOpacity, useColorScheme, ActivityIndicator, TextInput } from 'react-native';
+import { StyleSheet, View, Text, FlatList, TouchableOpacity, useColorScheme, ActivityIndicator, TextInput } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Plus, ChevronRight } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -16,6 +16,7 @@ export default function RoomsScreen() {
   const [loading, setLoading] = useState(true);
   const [joinId, setJoinId] = useState('');
   const [joining, setJoining] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
 
   useEffect(() => {
@@ -32,6 +33,8 @@ export default function RoomsScreen() {
   };
 
   const handleCreateRoom = async () => {
+    if (creating) return;
+    setCreating(true);
     try {
       const roomId = await createRoom(`Brainstorming Session`);
       if (roomId) {
@@ -41,6 +44,8 @@ export default function RoomsScreen() {
       }
     } catch(err: any) {
       alert("Error: " + err.message);
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -60,45 +65,44 @@ export default function RoomsScreen() {
 
   const renderRightActions = (roomId: string) => {
     return (
-      <Pressable 
+      <TouchableOpacity
         style={{ backgroundColor: '#ef4444', justifyContent: 'center', alignItems: 'flex-end', paddingHorizontal: 24, marginBottom: 12, borderRadius: 16, width: 100 }}
         onPress={() => leaveRoom(roomId)}
+        activeOpacity={0.7}
       >
         <Text style={{ color: '#fff', fontWeight: 'bold' }}>Leave</Text>
-      </Pressable>
+      </TouchableOpacity>
     );
   };
 
   const renderLeftActions = (roomId: string) => {
     return (
-      <Pressable 
+      <TouchableOpacity
         style={{ backgroundColor: '#10b981', justifyContent: 'center', alignItems: 'flex-start', paddingHorizontal: 24, marginBottom: 12, borderRadius: 16, width: 100 }}
         onPress={() => router.push(`/deploy/${roomId}` as any)}
+        activeOpacity={0.7}
       >
         <Text style={{ color: '#fff', fontWeight: 'bold' }}>Deploy</Text>
-      </Pressable>
+      </TouchableOpacity>
     );
   };
 
   const renderRoom = ({ item }: { item: any }) => (
-    <Swipeable 
+    <Swipeable
       renderRightActions={() => renderRightActions(item.id)}
       renderLeftActions={() => renderLeftActions(item.id)}
     >
-      <Pressable 
-        style={({pressed}) => [
-          styles.roomCard, 
-          { backgroundColor: colors.card, borderColor: colors.border },
-          pressed && styles.roomCardPressed
-        ]}
+      <TouchableOpacity
+        style={[styles.roomCard, { backgroundColor: colors.card, borderColor: colors.border }]}
         onPress={() => router.push(`/room/${item.id}`)}
+        activeOpacity={0.7}
       >
         <View style={styles.roomInfo}>
           <Text style={[styles.roomName, { color: colors.text }]}>{item.name}</Text>
           <Text style={[styles.roomMeta, { color: colors.textSecondary }]}>Hosted securely via Supabase</Text>
         </View>
         <ChevronRight size={20} color={colors.textSecondary} />
-      </Pressable>
+      </TouchableOpacity>
     </Swipeable>
   );
 
@@ -109,16 +113,16 @@ export default function RoomsScreen() {
       ) : (
         <>
           <View style={[styles.joinContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <TextInput 
+            <TextInput
               style={[styles.joinInput, { color: colors.text }]}
               placeholder="Paste Room ID here..."
               placeholderTextColor={colors.textSecondary}
               value={joinId}
               onChangeText={setJoinId}
             />
-            <Pressable style={[styles.joinButton, { backgroundColor: colors.tint }]} onPress={handleJoinRoom} disabled={joining}>
+            <TouchableOpacity style={[styles.joinButton, { backgroundColor: colors.tint }]} onPress={handleJoinRoom} disabled={joining} activeOpacity={0.7}>
               {joining ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.joinButtonText}>Join</Text>}
-            </Pressable>
+            </TouchableOpacity>
           </View>
           <FlatList
             data={rooms}
@@ -130,12 +134,13 @@ export default function RoomsScreen() {
         </>
       )}
       <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.tint, shadowColor: colors.tint }]}
+        style={[styles.fab, { backgroundColor: colors.tint, shadowColor: colors.tint }, creating && { opacity: 0.6 }]}
         onPress={handleCreateRoom}
+        disabled={creating}
         hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-        activeOpacity={0.7}
+        activeOpacity={0.6}
       >
-        <Plus size={28} color="#ffffff" />
+        {creating ? <ActivityIndicator size={28} color="#ffffff" /> : <Plus size={28} color="#ffffff" />}
       </TouchableOpacity>
       
       <TutorialModal visible={showTutorial} onClose={handleCloseTutorial} />

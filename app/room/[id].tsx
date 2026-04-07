@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, TextInput, Pressable, TouchableOpacity, KeyboardAvoidingView, Platform, FlatList, useColorScheme, ActivityIndicator, Share, Modal, ScrollView, Text } from 'react-native';
+import { StyleSheet, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, FlatList, useColorScheme, ActivityIndicator, Share, Modal, ScrollView, Text } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import Markdown from 'react-native-markdown-display';
 import { Send, ArrowLeft, Sparkles, LogOut, Copy, Share as ShareIcon, Lock, RefreshCw, BookOpen, X } from 'lucide-react-native';
 import { useChatStore } from '@/lib/store/chatStore';
 import { useAuthStore } from '@/lib/store/authStore';
 import { useSettingsStore } from '@/lib/store/settingsStore';
+import { AlertCircle } from 'lucide-react-native';
 import { ChatBubble } from '@/components/ChatBubble';
 import { Message } from '@/lib/types';
 import Colors from '@/constants/Colors';
@@ -24,7 +25,7 @@ const generateId = () => {
 export default function RoomScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const { rooms, messages, loadMessages, queueMessage, addMessage, updateMessage, subscribeToRoom, updateRoomName, updateRoomLock, regenerateInviteCode } = useChatStore();
+  const { rooms, messages, loadMessages, queueMessage, addMessage, updateMessage, removeMessage, subscribeToRoom, updateRoomName, updateRoomLock, regenerateInviteCode } = useChatStore();
   const { session } = useAuthStore();
   const { aiProvider, globalApiKey, openaiModel, anthropicModel, geminiModel } = useSettingsStore();
 
@@ -37,6 +38,7 @@ export default function RoomScreen() {
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [isAIAnalysing, setIsAIAnalysing] = useState(false);
   const [showCatchUpBanner, setShowCatchUpBanner] = useState(false);
+  const [fallbackNotice, setFallbackNotice] = useState<{ from: string; to: string } | null>(null);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
@@ -74,15 +76,23 @@ export default function RoomScreen() {
     }
     return () => {
       active = false;
-      supabase.removeAllChannels(); 
+      supabase.removeAllChannels();
     };
   }, [id]);
+
+  // Auto-dismiss fallback notice after 5 seconds
+  useEffect(() => {
+    if (fallbackNotice) {
+      const timer = setTimeout(() => setFallbackNotice(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [fallbackNotice]);
 
   const summarizeActivity = async (force: boolean = false) => {
     if (!session?.user?.id) return;
     setShowCatchUpBanner(false);
     setShowSummaryModal(true);
-    
+
     // Session Persistence: Skip if already generated (unless forced)
     if (!force && summaryText.length > 0) return;
 
@@ -92,8 +102,18 @@ export default function RoomScreen() {
     const pmPrompt = "You are an assistant. Briefly summarize what was recently discussed in this chat room in 3 concise bullet points. Be extremely brief.";
     // Truncation: Hard-cap context to last 80 messages for summary
     const chronologicalMessages = [...roomMessages].reverse().slice(-80);
-    const stream = streamChimeIn(aiProvider, globalApiKey, activeModel, pmPrompt, chronologicalMessages);
-    
+    const availableModels = useSettingsStore.getState().getAvailableModelsForActiveProvider();
+
+    const stream = streamChimeIn(
+      aiProvider,
+      globalApiKey,
+      activeModel,
+      pmPrompt,
+      chronologicalMessages,
+      availableModels,
+      (from, to) => setFallbackNotice({ from, to })
+    );
+
     let accumulatedText = "";
     // eslint-disable-next-line no-unreachable-loop
     for await (const chunk of stream) {
@@ -107,11 +127,54 @@ export default function RoomScreen() {
   const handleAIResponse = async (userText: string) => {
     if (!session?.user?.id || isAIAnalysing) return;
     setIsAIAnalysing(true);
+    setFallbackNotice(null);
 
     const roleContext = classifyRoleLocal(userText);
     let systemPrompt = getSystemContext(roleContext);
-    if (summaryText && summaryText.length > 0 && !summaryText.startsWith('Initiating')) {
-      systemPrompt += `\n\nHere is a recent summary of the conversation so far for additional context:\n${summaryText}`;
+
+    // Auto-generate summary on first chime-in if not yet generated
+    let contextSummary = summaryText;
+    if ((!contextSummary || contextSummary.length === 0) && roomMessages.length > 5) {
+      // Show indicator while generating context
+      const agentContextId = generateId();
+      addMessage({
+        id: agentContextId,
+        room_id: id as string,
+        sender_id: session.user.id,
+        sender_type: 'agent',
+        sender_name: 'system',
+        content: 'Building context summary...',
+        created_at: new Date().toISOString()
+      });
+
+      const pmPrompt = "You are an assistant. Briefly summarize what has been discussed in this chat room in 3 concise bullet points. Be extremely brief.";
+      const chronologicalMessages = [...roomMessages].reverse().slice(-80);
+      const availableModels = useSettingsStore.getState().getAvailableModelsForActiveProvider();
+
+      const summaryStream = streamChimeIn(
+        aiProvider,
+        globalApiKey,
+        activeModel,
+        pmPrompt,
+        chronologicalMessages,
+        availableModels,
+        (from, to) => setFallbackNotice({ from, to })
+      );
+
+      let generatedSummary = "";
+      for await (const chunk of summaryStream) {
+        generatedSummary += chunk;
+        updateMessage(agentContextId, { content: `Building context...\n\n${generatedSummary}` });
+      }
+      contextSummary = generatedSummary;
+      setSummaryText(generatedSummary);
+
+      // Remove the temporary context message — it's not persisted
+      removeMessage(agentContextId);
+    }
+
+    if (contextSummary && contextSummary.length > 0 && !contextSummary.startsWith('[Error')) {
+      systemPrompt += `\n\nHere is a recent summary of the conversation so far for additional context:\n${contextSummary}`;
     }
 
     // Auto-name detection
@@ -130,19 +193,28 @@ export default function RoomScreen() {
     addMessage({
       id: agentMsgId,
       room_id: id as string,
-      sender_id: session.user.id, 
+      sender_id: session.user.id,
       sender_type: 'agent',
       sender_name: roleContext,
-      content: '...', // Show loading state instead of blank space
+      content: '...',
       created_at: new Date().toISOString()
     });
 
     let accumulatedText = "";
     // Truncation: Hard-cap memory. The LLM ONLY sees the last 50 messages to prevent token exhaust.
     const chronoChatMsgs = [...roomMessages].reverse().slice(-50);
-    const stream = streamChimeIn(aiProvider, globalApiKey, activeModel, systemPrompt, chronoChatMsgs);
-    
-    
+    const availableModels = useSettingsStore.getState().getAvailableModelsForActiveProvider();
+
+    const stream = streamChimeIn(
+      aiProvider,
+      globalApiKey,
+      activeModel,
+      systemPrompt,
+      chronoChatMsgs,
+      availableModels,
+      (from, to) => setFallbackNotice({ from, to })
+    );
+
     // eslint-disable-next-line no-unreachable-loop
     for await (const chunk of stream) {
       accumulatedText += chunk;
@@ -211,49 +283,59 @@ export default function RoomScreen() {
           ),
           headerRight: () => (
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Pressable 
-                onPress={() => alert(`Share this Room Join URL with teammates:\n\n${currentRoom?.invite_code || id}`)} 
+              <TouchableOpacity
+                onPress={() => alert(`Share this Room Join URL with teammates:\n\n${currentRoom?.invite_code || id}`)}
                 style={{ marginRight: 8, padding: 6 }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                activeOpacity={0.6}
               >
                 <Copy color={colors.textSecondary} size={20} />
-              </Pressable>
+              </TouchableOpacity>
 
-              <Pressable 
+              <TouchableOpacity
                 onPress={() => {
                    regenerateInviteCode(id as string);
                    alert("New Invite Link Generated! The old link has been destroyed.");
-                }} 
+                }}
                 style={{ marginRight: 8, padding: 6 }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                activeOpacity={0.6}
               >
                 <RefreshCw color={colors.textSecondary} size={20} />
-              </Pressable>
+              </TouchableOpacity>
 
-              <Pressable 
+              <TouchableOpacity
                 onPress={async () => {
                    const formatted = roomMessages.slice().reverse().map(m => `[${m.sender_name || (m.sender_type === 'user' ? 'Anonymous' : 'Agent')}]: ${m.content}`).join('\n\n');
                    await Share.share({ message: `Brainstorming Session Logs:\n\n${formatted}` });
-                }} 
+                }}
                 style={{ marginRight: 8, padding: 6 }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                activeOpacity={0.6}
               >
                 <ShareIcon color={colors.textSecondary} size={20} />
-              </Pressable>
+              </TouchableOpacity>
 
-              <Pressable 
+              <TouchableOpacity
                 onPress={() => {
                    updateRoomLock(id as string, true);
                    alert("Room locked. No new peers can join using the UUID.");
-                }} 
+                }}
                 style={{ marginRight: 8, padding: 6 }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                activeOpacity={0.6}
               >
                 <Lock color={colors.textSecondary} size={20} />
-              </Pressable>
+              </TouchableOpacity>
 
-              <Pressable 
-                onPress={() => summarizeActivity(false)} 
+              <TouchableOpacity
+                onPress={() => summarizeActivity(false)}
                 style={{ marginRight: 8, padding: 8, backgroundColor: colors.card, borderRadius: 20 }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                activeOpacity={0.6}
               >
                 <BookOpen color={colors.textSecondary} size={20} />
-              </Pressable>
+              </TouchableOpacity>
 
               <TouchableOpacity 
                 disabled={isAIAnalysing}
@@ -270,9 +352,21 @@ export default function RoomScreen() {
       {showCatchUpBanner && (
         <View style={{ backgroundColor: '#10b981', padding: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <Text style={{ color: '#fff', fontWeight: 'bold' }}>You've been gone a while.</Text>
-          <Pressable onPress={() => summarizeActivity(true)} style={{ backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}>
+          <TouchableOpacity onPress={() => summarizeActivity(true)} style={{ backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }} activeOpacity={0.7}>
              <Text style={{ color: '#10b981', fontWeight: 'bold', fontSize: 12 }}>Catch Me Up</Text>
-          </Pressable>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {fallbackNotice && (
+        <View style={{ backgroundColor: '#fbbf24', padding: 12, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 }}>
+          <AlertCircle color="#92400e" size={18} style={{ marginRight: 8 }} />
+          <Text style={{ color: '#92400e', fontWeight: '600', fontSize: 14, flex: 1 }}>
+            Switched to {fallbackNotice.to} due to quota limits
+          </Text>
+          <TouchableOpacity onPress={() => setFallbackNotice(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} activeOpacity={0.6}>
+            <Text style={{ color: '#92400e', fontWeight: 'bold' }}>✕</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -315,15 +409,15 @@ export default function RoomScreen() {
                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                    <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.text, marginRight: 12 }}>Activity Summary</Text>
                    {!isSummarizing && (
-                     <Pressable onPress={() => summarizeActivity(true)} style={{ flexDirection: 'row', alignItems: 'center', padding: 4, backgroundColor: colors.background, borderRadius: 8 }}>
+                     <TouchableOpacity onPress={() => summarizeActivity(true)} style={{ flexDirection: 'row', alignItems: 'center', padding: 4, backgroundColor: colors.background, borderRadius: 8 }} activeOpacity={0.6}>
                        <RefreshCw color={colors.tint} size={14} style={{ marginRight: 4 }} />
                        <Text style={{ color: colors.tint, fontSize: 12, fontWeight: 'bold' }}>Update</Text>
-                     </Pressable>
+                     </TouchableOpacity>
                    )}
                  </View>
-                 <Pressable onPress={() => setShowSummaryModal(false)}>
+                 <TouchableOpacity onPress={() => setShowSummaryModal(false)} activeOpacity={0.6} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <X color={colors.textSecondary} size={24} />
-                 </Pressable>
+                 </TouchableOpacity>
               </View>
               <ScrollView>
                  <Markdown 
