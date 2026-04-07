@@ -18,7 +18,8 @@
       "bundleIdentifier": "com.ideamakers.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "appleTeamId": "WNCPGAQTD2"
     },
     "android": {
       "adaptiveIcon": {
