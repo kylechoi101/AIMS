@@ -194,7 +194,11 @@ export default function RoomScreen() {
           headerTintColor: colors.text,
           headerShadowVisible: false,
           headerLeft: () => (
-            <Pressable onPress={() => router.back()} style={{ marginRight: 15 }}>
+            <Pressable
+              onPress={() => router.back()}
+              style={{ marginRight: 15, padding: 8 }}
+              hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+            >
               <ArrowLeft color={colors.text} size={24} />
             </Pressable>
           ),

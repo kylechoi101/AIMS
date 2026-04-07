@@ -129,8 +129,12 @@ export default function RoomsScreen() {
           />
         </>
       )}
-      <Pressable style={[styles.fab, { backgroundColor: colors.tint, shadowColor: colors.tint }]} onPress={handleCreateRoom}>
-        <Plus size={24} color="#ffffff" />
+      <Pressable
+        style={[styles.fab, { backgroundColor: colors.tint, shadowColor: colors.tint }]}
+        onPress={handleCreateRoom}
+        hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+      >
+        <Plus size={28} color="#ffffff" />
       </Pressable>
       
       <TutorialModal visible={showTutorial} onClose={handleCloseTutorial} />
@@ -154,7 +158,7 @@ const styles = StyleSheet.create({
   joinButton: { paddingHorizontal: 16, height: 40, justifyContent: 'center', alignItems: 'center', borderRadius: 8, marginLeft: 8 },
   joinButtonText: { color: '#fff', fontWeight: '600' },
   fab: {
-    position: 'absolute', bottom: 24, right: 24, width: 56, height: 56, borderRadius: 28, 
+    position: 'absolute', bottom: 24, right: 24, width: 64, height: 64, borderRadius: 32, 
     justifyContent: 'center', alignItems: 'center', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4, shadowRadius: 8, elevation: 5,
   }
