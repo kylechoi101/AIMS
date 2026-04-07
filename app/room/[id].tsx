@@ -107,7 +107,10 @@ export default function RoomScreen() {
     if (!session?.user?.id) return;
 
     const roleContext = classifyRoleLocal(userText);
-    const systemPrompt = getSystemContext(roleContext);
+    let systemPrompt = getSystemContext(roleContext);
+    if (summaryText && summaryText.length > 0 && !summaryText.startsWith('Initiating')) {
+      systemPrompt += `\n\nHere is a recent summary of the conversation so far for additional context:\n${summaryText}`;
+    }
 
     // Auto-name detection
     if (localRoomName === "Brainstorming Session") {
