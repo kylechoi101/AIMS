@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, FlatList, Pressable, useColorScheme, ActivityIndicator, TextInput } from 'react-native';
+import { StyleSheet, View, Text, FlatList, Pressable, TouchableOpacity, useColorScheme, ActivityIndicator, TextInput } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Plus, ChevronRight } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -129,13 +129,14 @@ export default function RoomsScreen() {
           />
         </>
       )}
-      <Pressable
+      <TouchableOpacity
         style={[styles.fab, { backgroundColor: colors.tint, shadowColor: colors.tint }]}
         onPress={handleCreateRoom}
-        hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+        hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+        activeOpacity={0.7}
       >
         <Plus size={28} color="#ffffff" />
-      </Pressable>
+      </TouchableOpacity>
       
       <TutorialModal visible={showTutorial} onClose={handleCloseTutorial} />
     </View>

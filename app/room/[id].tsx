@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, TextInput, Pressable, KeyboardAvoidingView, Platform, FlatList, useColorScheme, ActivityIndicator, Share, Modal, ScrollView, Text } from 'react-native';
+import { StyleSheet, View, TextInput, Pressable, TouchableOpacity, KeyboardAvoidingView, Platform, FlatList, useColorScheme, ActivityIndicator, Share, Modal, ScrollView, Text } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import Markdown from 'react-native-markdown-display';
 import { Send, ArrowLeft, Sparkles, LogOut, Copy, Share as ShareIcon, Lock, RefreshCw, BookOpen, X } from 'lucide-react-native';
@@ -197,13 +197,14 @@ export default function RoomScreen() {
           headerTintColor: colors.text,
           headerShadowVisible: false,
           headerLeft: () => (
-            <Pressable
+            <TouchableOpacity
               onPress={() => router.back()}
-              style={{ marginRight: 15, padding: 8 }}
-              hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+              style={{ marginRight: 15, padding: 10 }}
+              hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+              activeOpacity={0.6}
             >
               <ArrowLeft color={colors.text} size={24} />
-            </Pressable>
+            </TouchableOpacity>
           ),
           headerRight: () => (
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
