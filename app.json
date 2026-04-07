@@ -37,7 +37,16 @@
     },
     "plugins": [
       "expo-router",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "targetSdkVersion": 35,
+            "compileSdkVersion": 35
+          }
+        }
+      ]
     ],
     "updates": {
       "url": "https://u.expo.dev/PROJECT-ID-HERE"
