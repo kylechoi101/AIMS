@@ -54,7 +54,7 @@ async function* parseOpenAIStream(apiKey: string, model: string, systemPrompt: s
       "Authorization": `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: model || "gpt-4o-mini",
+      model: model || "gpt-5.4-mini",
       messages: transformedMessages,
       stream: true
     }),
@@ -102,7 +102,7 @@ async function* parseAnthropicStream(apiKey: string, model: string, systemPrompt
       "anthropic-version": "2023-06-01"
     },
     body: JSON.stringify({
-      model: model || "claude-3-haiku-20240307",
+      model: model || "claude-4.5-haiku",
       max_tokens: 1024,
       system: systemPrompt,
       messages: transformedMessages,
@@ -142,7 +142,7 @@ async function* parseGeminiStream(apiKey: string, model: string, systemPrompt: s
     parts: [{ text: m.content }]
   }));
 
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model || 'gemini-2.5-flash'}:streamGenerateContent?alt=sse&key=${apiKey}`, {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model || 'gemini-3.1-flash-lite'}:streamGenerateContent?alt=sse&key=${apiKey}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -197,7 +197,7 @@ export async function generateRoomTitle(
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
+          model: "gpt-5.4-mini",
           messages: [{ role: 'system', content: prompt }, { role: 'user', content: chatLog }],
           stream: false
         }),
@@ -211,7 +211,7 @@ export async function generateRoomTitle(
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
         body: JSON.stringify({
-          model: "claude-3-haiku-20240307",
+          model: "claude-4.5-haiku",
           max_tokens: 30,
           system: prompt,
           messages: [{ role: 'user', content: chatLog || "Empty brainstorm session" }],
@@ -223,7 +223,7 @@ export async function generateRoomTitle(
       return json.content?.[0]?.text?.replace(/['"]/g, '').trim() || null;
       
     } else if (provider === 'gemini') {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

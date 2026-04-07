@@ -7,9 +7,9 @@ import Colors from '@/constants/Colors';
 import { useRouter } from 'expo-router';
 import { TutorialModal } from '@/components/TutorialModal';
 
-const OPENAI_MODELS = ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "o1", "o1-mini"];
-const ANTHROPIC_MODELS = ["claude-opus-4-5", "claude-sonnet-4-5", "claude-haiku-3-5", "claude-3-opus-20240229"];
-const GEMINI_MODELS = ["gemini-2.5-pro-exp-03-25", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"];
+const OPENAI_MODELS = ["gpt-5.4-pro", "gpt-5.4-thinking", "gpt-5.4-mini", "gpt-5.2", "gpt-4o"];
+const ANTHROPIC_MODELS = ["claude-4.6-opus", "claude-4.6-sonnet", "claude-4.6-haiku", "claude-4.5-sonnet"];
+const GEMINI_MODELS = ["gemini-3.1-pro", "gemini-3.1-flash-lite", "gemini-3.0", "gemini-2.5-pro"];
 
 function CustomPicker({ value, onValueChange, options, placeholder, colors }: any) {
   const [modalVisible, setModalVisible] = useState(false);

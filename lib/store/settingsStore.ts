@@ -42,9 +42,9 @@ interface SettingsSlice {
 export const useSettingsStore = create<SettingsSlice>((set) => ({
   aiProvider: (storage.getString('aiProvider') as AiProvider) || 'openai',
   globalApiKey: storage.getString('globalApiKey') || '',
-  openaiModel: storage.getString('openaiModel') || 'gpt-4o',
-  anthropicModel: storage.getString('anthropicModel') || 'claude-sonnet-4-5',
-  geminiModel: storage.getString('geminiModel') || 'gemini-2.5-flash',
+  openaiModel: storage.getString('openaiModel') || 'gpt-5.4-pro',
+  anthropicModel: storage.getString('anthropicModel') || 'claude-4.6-opus',
+  geminiModel: storage.getString('geminiModel') || 'gemini-3.1-pro',
   
   setAiProvider: (provider: AiProvider) => {
     storage.set('aiProvider', provider);
