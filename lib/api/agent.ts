@@ -1,5 +1,6 @@
-import { Message } from "../types";
+import { Message, Pass1Result } from "../types";
 import { sortModelsByTier, getModelTier } from "./models";
+import { buildPass1Prompt, parsePass1Response, buildPass2Prompt, FIVE_LAYER_PROMPTS, buildMetadataPrompt } from "../../services/agent-dispatch";
 
 export type AIProvider = 'openai' | 'anthropic' | 'gemini';
 
@@ -247,6 +248,134 @@ async function* parseGeminiStream(apiKey: string, model: string, systemPrompt: s
       }
     }
   }
+}
+
+/**
+ * Non-streaming call to a single model. No fallback chain.
+ * Used for Pass 1 analysis and five-layer pipeline steps.
+ */
+export async function callModelDirect(
+  provider: string,
+  apiKey: string,
+  model: string,
+  systemPrompt: string,
+  messages: Message[],
+  timeoutMs: number = 12000
+): Promise<string> {
+  let result = "";
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    if (provider === 'openai') {
+      for await (const chunk of parseOpenAIStream(apiKey, model, systemPrompt, messages, controller.signal)) {
+        result += chunk;
+      }
+    } else if (provider === 'anthropic') {
+      for await (const chunk of parseAnthropicStream(apiKey, model, systemPrompt, messages, controller.signal)) {
+        result += chunk;
+      }
+    } else if (provider === 'gemini') {
+      for await (const chunk of parseGeminiStream(apiKey, model, systemPrompt, messages, controller.signal)) {
+        result += chunk;
+      }
+    }
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  return result;
+}
+
+/** Get the best available light model. */
+export function getLightModel(availableModels: string[]): string | null {
+  const tiers = sortModelsByTier(availableModels);
+  return tiers.light[0] || tiers.mid[0] || null;
+}
+
+/** Get the best available flagship model. */
+export function getFlagshipModel(availableModels: string[]): string | null {
+  const tiers = sortModelsByTier(availableModels);
+  return tiers.flagship[0] || tiers.mid[0] || null;
+}
+
+/**
+ * Five-Layer Fallback Pipeline.
+ * Achieves flagship-quality analysis through chained light model calls.
+ * Layers: Analyzer -> Role Inventor -> Prompt Writer -> (Responder is external) -> (Overseer on regen)
+ */
+export async function runFiveLayerAnalysis(
+  provider: string,
+  apiKey: string,
+  lightModel: string,
+  recentMessages: Message[],
+): Promise<Pass1Result> {
+  const chatLog = recentMessages
+    .slice(-20)
+    .map(m => `[${m.sender_name || m.sender_type}]: ${m.content}`)
+    .join('\n');
+
+  const dummyMsg: Message[] = [{
+    id: 'pipeline', room_id: '', sender_id: null, sender_type: 'user',
+    content: 'Proceed.', created_at: new Date().toISOString()
+  }];
+
+  try {
+    // Layer 1: Analyzer — extract facts, decisions, open questions
+    const analysis = await callModelDirect(provider, apiKey, lightModel, FIVE_LAYER_PROMPTS.analyzer(chatLog), dummyMsg, 10000);
+
+    // Layer 2: Role + Argument — invent expert role AND the numbered argument structure
+    const roleArgRaw = await callModelDirect(provider, apiKey, lightModel, FIVE_LAYER_PROMPTS.roleAndArgument(analysis), dummyMsg, 10000);
+
+    let role = 'Strategic Advisor';
+    let args = '';
+    try {
+      const match = roleArgRaw.match(/\{[\s\S]*\}/);
+      if (match) {
+        const parsed = JSON.parse(match[0]);
+        role = parsed.role || role;
+        args = Array.isArray(parsed.arguments) ? parsed.arguments.join('\n') : String(parsed.arguments || '');
+      }
+    } catch {}
+
+    // Layer 3: Blueprint Writer — expand into full execution blueprint
+    const blueprint = await callModelDirect(provider, apiKey, lightModel, FIVE_LAYER_PROMPTS.blueprintWriter(role, args, analysis), dummyMsg, 10000);
+
+    return { role, blueprint };
+  } catch {
+    return {
+      role: 'Advisor',
+      blueprint: 'PERSONA: You are a direct, helpful advisor.\n\nSITUATION ASSESSMENT: The conversation needs constructive input.\n\nARGUMENT STRUCTURE:\n1. Address the most recent point raised with a specific opinion\n2. Offer one concrete, actionable suggestion\n3. Flag one risk or blind spot\n\nTONE: Direct and specific. No hedging.\n\nFORMAT: Short paragraphs. End with a clear next step.\n\nMUST AVOID: Vague advice. Repeating what was already said.',
+    };
+  }
+}
+
+/**
+ * Extract structured metadata from conversation for room details.
+ * Non-blocking — fire-and-forget.
+ */
+export async function extractMetadata(
+  provider: string,
+  apiKey: string,
+  model: string,
+  recentMessages: Message[],
+): Promise<Record<string, any> | null> {
+  const chatLog = recentMessages
+    .slice(-30)
+    .map(m => `[${m.sender_name || m.sender_type}]: ${m.content}`)
+    .join('\n');
+
+  const dummyMsg: Message[] = [{
+    id: 'meta', room_id: '', sender_id: null, sender_type: 'user',
+    content: 'Extract the metadata.', created_at: new Date().toISOString()
+  }];
+
+  try {
+    const raw = await callModelDirect(provider, apiKey, model, buildMetadataPrompt(chatLog), dummyMsg, 10000);
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (match) return JSON.parse(match[0]);
+  } catch {}
+  return null;
 }
 
 export async function generateRoomTitle(

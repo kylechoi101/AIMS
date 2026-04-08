@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, timestamp, primaryKey, index, check, date } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, integer, timestamp, primaryKey, index, check, date, jsonb } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 export const users = pgTable('users', {
@@ -11,8 +11,12 @@ export const rooms = pgTable('rooms', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: text('name').notNull(),
   createdBy: uuid('created_by').references(() => users.id).notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
-});
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  status: text('status').default('brainstorming'),
+  details: jsonb('details'),
+}, (t) => ({
+  checkStatus: check('status_check', sql`${t.status} IN ('brainstorming', 'scoping', 'building', 'shipped')`)
+}));
 
 export const roomMembers = pgTable('room_members', {
   roomId: uuid('room_id').references(() => rooms.id, { onDelete: 'cascade' }).notNull(),

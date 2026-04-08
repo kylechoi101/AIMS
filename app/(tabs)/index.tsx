@@ -87,24 +87,40 @@ export default function RoomsScreen() {
     );
   };
 
-  const renderRoom = ({ item }: { item: any }) => (
-    <Swipeable
-      renderRightActions={() => renderRightActions(item.id)}
-      renderLeftActions={() => renderLeftActions(item.id)}
-    >
-      <TouchableOpacity
-        style={[styles.roomCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-        onPress={() => router.push(`/room/${item.id}`)}
-        activeOpacity={0.7}
+  const statusColors: Record<string, string> = {
+    brainstorming: '#6366f1',
+    scoping: '#f59e0b',
+    building: '#10b981',
+    shipped: '#ec4899',
+  };
+
+  const renderRoom = ({ item }: { item: any }) => {
+    const status = item.status || 'brainstorming';
+    const sColor = statusColors[status] || '#6366f1';
+    return (
+      <Swipeable
+        renderRightActions={() => renderRightActions(item.id)}
+        renderLeftActions={() => renderLeftActions(item.id)}
       >
-        <View style={styles.roomInfo}>
-          <Text style={[styles.roomName, { color: colors.text }]}>{item.name}</Text>
-          <Text style={[styles.roomMeta, { color: colors.textSecondary }]}>Hosted securely via Supabase</Text>
-        </View>
-        <ChevronRight size={20} color={colors.textSecondary} />
-      </TouchableOpacity>
-    </Swipeable>
-  );
+        <TouchableOpacity
+          style={[styles.roomCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={() => router.push(`/room/${item.id}`)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.roomInfo}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+              <Text style={[styles.roomName, { color: colors.text, marginBottom: 0 }]}>{item.name}</Text>
+              <View style={{ backgroundColor: sColor + '20', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, marginLeft: 8, borderWidth: 1, borderColor: sColor }}>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: sColor, textTransform: 'capitalize' }}>{status}</Text>
+              </View>
+            </View>
+            <Text style={[styles.roomMeta, { color: colors.textSecondary }]}>Hosted securely via Supabase</Text>
+          </View>
+          <ChevronRight size={20} color={colors.textSecondary} />
+        </TouchableOpacity>
+      </Swipeable>
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

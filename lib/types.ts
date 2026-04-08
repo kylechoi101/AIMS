@@ -1,5 +1,3 @@
-export type AgentRole = 'designer' | 'developer' | 'researcher' | 'advisor';
-
 export type Message = {
   id: string;
   room_id: string;
@@ -15,6 +13,8 @@ export type ChimeParams = {
   recentMessages: Message[];
 };
 
+export type RoomStatus = 'brainstorming' | 'scoping' | 'building' | 'shipped';
+
 export type Room = {
   id: string;
   name: string;
@@ -22,4 +22,11 @@ export type Room = {
   created_at: string;
   is_locked?: boolean;
   invite_code?: string;
+  status?: RoomStatus;
+  details?: Record<string, any>;
+};
+
+export type Pass1Result = {
+  role: string;
+  blueprint: string;
 };

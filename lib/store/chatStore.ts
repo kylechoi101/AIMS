@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { createMMKV } from "react-native-mmkv";
 import { Platform } from "react-native";
-import { Message, Room } from "../types";
+import { Message, Room, RoomStatus } from "../types";
 import { supabase } from "../supabase";
 
 // Safe MMKV initialization — falls back gracefully if native module isn't ready
@@ -45,6 +45,8 @@ interface ChatSlice {
   leaveRoom: (roomId: string) => Promise<void>;
   updateRoomName: (roomId: string, newName: string) => Promise<void>;
   updateRoomLock: (roomId: string, locked: boolean) => Promise<void>;
+  updateRoomStatus: (roomId: string, status: RoomStatus) => Promise<void>;
+  updateRoomDetails: (roomId: string, details: Record<string, any>) => Promise<void>;
   regenerateInviteCode: (roomId: string) => Promise<void>;
   loadMessages: (roomId: string, cursor?: string) => Promise<void>;
   addMessage: (msg: Message) => void;
@@ -128,6 +130,23 @@ export const useChatStore = create<ChatSlice>((set, get) => ({
     }));
     const { error } = await supabase.from('rooms').update({ is_locked: locked }).eq('id', roomId);
     if (error) console.log("Postgres Warning: Need to add 'is_locked' column to rooms table.", error);
+  },
+
+  updateRoomStatus: async (roomId: string, status: RoomStatus) => {
+    set((state) => ({
+      rooms: state.rooms.map(r => r.id === roomId ? { ...r, status } : r)
+    }));
+    await supabase.from('rooms').update({ status }).eq('id', roomId);
+  },
+
+  updateRoomDetails: async (roomId: string, details: Record<string, any>) => {
+    set((state) => ({
+      rooms: state.rooms.map(r => r.id === roomId ? { ...r, details: { ...(r.details || {}), ...details } } : r)
+    }));
+    // Merge with existing details on the server
+    const { data: existing } = await supabase.from('rooms').select('details').eq('id', roomId).single();
+    const merged = { ...(existing?.details || {}), ...details };
+    await supabase.from('rooms').update({ details: merged }).eq('id', roomId);
   },
 
   regenerateInviteCode: async (roomId: string) => {
